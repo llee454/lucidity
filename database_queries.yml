@@ -6,4 +6,4 @@ create_session:
 delete_session:
   op: execute
   query: |
-    DELETE FROM sessions WHERE key = '{{session}}';
+    DELETE FROM sessions WHERE key = '{{data:root.session}}';

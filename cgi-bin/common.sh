@@ -75,15 +75,15 @@ function get_config_args() {
 }
 
 # Accepts two arguments: config, a YAML configuration file containing
-# Mustache variables; and post, the POST request body; substitutes
-# the configuration argument values for the Mustache variables;
+# Amina variables; and post, the POST request body; substitutes
+# the configuration argument values for the Amina variables;
 # and returns the resulting YAML file content.
 function get_config_params() {
   local config_file="$1"
   local session="$2"
   local post="$3"
   local args=$(get_config_args "$session" "$post")
-  echo "$args" | mustache - "$config_file"
+  echo "$args" | amina --warn --template="$config_file" --init="${root_dir}cgi-bin/init.scm"
 }
 
 # Accepts two arguments: path, a YAML path string; and params,

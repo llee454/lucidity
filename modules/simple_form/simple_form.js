@@ -68,7 +68,8 @@ function simple_form_block (context, done) {
            var name = $(element).data ('simple-form-name');
            if (!name) { return next (); }
 
-           if ($(element).attr ('type') == 'file' && element.files.length > 0) {
+           if ($(element).attr ('type') == 'file') {
+             if (element.files.length == 0) { return next (); }
              if (element.files.length > 1) {
                return next (new Error ('Error: an error occured while trying to upload files using the Simple Form module. The Simple Form module only supports one file at a time.'));
              }
@@ -84,6 +85,20 @@ function simple_form_block (context, done) {
              };
              var file = element.files[0];
              reader.readAsDataURL (file);
+           } else {
+             var value = "";
+             if ($(element).is(':checkbox')) {
+               value = $(element).is(':checked') ? 'checked' : '';
+             } else {
+               value = $(element).val ();
+             }
+             if (escapeNewlines) {
+               value = value
+                 .replace (/\n/g, '\\\\n')
+                 .replace (/\"/g, '\\"');
+             }
+             request [name] = value
+             next ();
            }
          },
          function (error) {

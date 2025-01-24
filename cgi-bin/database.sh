@@ -50,6 +50,20 @@ case $(get_request_op "$request" "$params") in
     fi
     echo "$response"
     ;;
+  # Example configuration file:
+  # 
+  # example:
+  #   op: execute
+  #   query: |
+  #     SELECT '{{expr:pi}}'
+  #   create_file:
+  #     name: test.png
+  #     dir: uploads
+  #     content: |
+  #       {{data:root.file-content}}
+  #   delete_file:
+  #     name: test.png
+  #     dir: uploads
   execute)
     check_perms "$request" "$session" "$params"
     http_respond

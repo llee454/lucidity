@@ -160,6 +160,48 @@ function get_request_perm() {
   get_config_param ".$request.permission" "$params"
 }
 
+function request_create_file_exists() {
+  local request="$1"
+  local params="$2"
+  config_param_exists ".$request.create_file" "$params"
+}
+
+function get_request_create_file_name() {
+  local request="$1"
+  local params="$2"
+  get_config_param ".$request.create_file.name" "$params"
+}
+
+function get_request_create_file_dir() {
+  local request="$1"
+  local params="$2"
+  get_config_param ".$request.create_file.dir" "$params"
+}
+
+function get_request_create_file_content() {
+  local request="$1"
+  local params="$2"
+  get_config_param ".$request.create_file.content" "$params"
+}
+
+function request_delete_file_exists() {
+  local request="$1"
+  local params="$2"
+  config_param_exists ".$request.delete_file" "$params"
+}
+
+function get_request_delete_file_name() {
+  local request="$1"
+  local params="$2"
+  get_config_param ".$request.delete_file.name" "$params"
+}
+
+function get_request_delete_file_dir() {
+  local request="$1"
+  local params="$2"
+  get_config_param ".$request.delete_file.dir" "$params"
+}
+
 # Accepts three arguments: table, the name of a table in the database;
 # and json, a JSON string that represents a row in table; and inserts
 # the row into the database.
@@ -182,6 +224,15 @@ function update() {
   echo "$json" | sqlite-utils 'upsert' --pk="$primary_key" "$db" "$table" -
 }
 
+# Accepts two arguments: file_path, a local file path; and
+# file_content, base64 encoded content; and creates a file with the
+# given name and decoded content.
+function create_file() {
+  local file_path="$1"
+  local file_content="$2"
+  echo "$file_content" | base64 --decode - > "$file_path"
+}
+
 function exec_insert_request() {
   local db="$1"
   local request="$2"
@@ -199,6 +250,72 @@ function exec_update_request() {
   local table=$(get_request_table "$request" "$params")
   local primary_key=$(get_request_pk "$request" "$params")
   update "$db" "$table" "$primary_key" "$json"
+}
+
+# Accepts one argument: filename, a string that represents a file
+# name; and removes those characters that could be used to jump into
+# other file directories or embed BASH code.
+function clean_file_name() {
+  local file_name="$1"
+  echo "$file_name" | tr --delete '/'
+}
+
+# Accepts two arguments: request, a request code; and params,
+# the current configuration parameters. If the current request's
+# configuration parameters tells us to create a file, this function
+# reads the filename and content, checks that the file name does
+# not already exist, and creates a new file using the name and
+# content.
+#
+# Note: that the content must be base64 encoded.
+# Note: if the file name contains characters such /, this function
+# will throw an error.
+function exec_create_file() {
+  local request="$1"
+  local params="$2"
+  if request_create_file_exists "$request" "$params"
+  then
+    local file_dir=$(get_request_create_file_dir "$request" "$params")
+
+    local file_name=$(get_request_create_file_name "$request" "$params")
+    local safe_file_name=$(clean_file_name "$file_name")
+    if [[ "$file_name" != "$safe_file_name" ]]
+    then
+      echo '{"error": "Error: an error occured while trying to create a file. The file name contains invalid characters."}'
+      exit 1
+    fi
+
+    local file_path="${file_dir}/${file_name}"
+    local file_content=$(get_request_create_file_content "$request" "$params")
+    if [ -e "$file_path" ]
+    then
+      echo '{"error": "Error: an error occured while trying to create a file. The file already exists."}'
+      exit 1
+    fi
+    create_file "$file_path" "$file_content"
+  fi
+}
+
+# Accepts two arguments: request, a request code; and params,
+# the current configuration parameters. If the current request's
+# configuration parameters tells us to delete a file, this function
+# deletes the named file.
+function exec_delete_file() {
+  local request="$1"
+  local params="$2"
+  if request_delete_file_exists "$request" "$params"
+  then
+    local file_dir=$(get_request_delete_file_dir "$request" "$params")
+    local file_name=$(get_request_delete_file_name "$request" "$params")
+    local safe_file_name=$(clean_file_name "$file_name")
+    if [[ "$file_name" != "$safe_file_name" ]]
+    then
+      echo '{"error": "Error: an error occured while trying to delete a file. The file name contains invalid characters."}'
+      exit 1
+    fi
+    local file_path="${file_dir}/${file_name}"
+    rm -f "$file_path"
+  fi
 }
 
 # Accepts three arguments: request, an request code; session,

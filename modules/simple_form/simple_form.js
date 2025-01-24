@@ -60,35 +60,53 @@ function simple_form_block (context, done) {
   var escapeNewlines = context.element.data ('simple-form-escape');
 
   context.element
-    .click (function () {
+    .click (async function () {
        var request = {}
-       $('[data-simple-form-id="' + formId + '"]').each (function (index, element) {
-         var name  = $(element).data ('simple-form-name');
-         var value = $(element).val ();
-         if (escapeNewlines) {
-           value = value
-             .replace (/\n/g, '\\\\n')
-             .replace (/\"/g, '\\"');
-         }
-         if (name) {
-           request [name] = value
-         }
-       });
+       var elements = $('[data-simple-form-id="' + formId + '"]').toArray (); 
+       async.each (elements,
+         function (element, next) {
+           var name = $(element).data ('simple-form-name');
+           if (!name) { return next (); }
 
-       $.post (url, JSON.stringify (request) + "\n",
-         function (content) {
-           simple_form_CALLBACKS.execute (formId, function () {
-             if (reload) {
-               location.reload();
-             } else if (redirect) {
-               loadPage (redirect);
-             } else {
-               alert ('success: ' + content)
+           if ($(element).attr ('type') == 'file' && element.files.length > 0) {
+             if (element.files.length > 1) {
+               return next (new Error ('Error: an error occured while trying to upload files using the Simple Form module. The Simple Form module only supports one file at a time.'));
              }
-           });
-         }, 'text').fail (function () {
-           alert ('failed')
-         });
+             var reader = new FileReader ();
+             reader.onload = function () {
+               var encodedContent = reader.result;
+               var contentStartIndex = encodedContent.indexOf ('base64');
+               request [name] = encodedContent.slice (contentStartIndex + 7);
+               next ();
+             };
+             reader.onerror = function () {
+               next (new Error ('Error: an error occured while trying to upload a file using the Simple Form module.'));
+             };
+             var file = element.files[0];
+             reader.readAsDataURL (file);
+           }
+         },
+         function (error) {
+           if (error) { return strictError (error); }
+
+           $.post (url, JSON.stringify (request) + "\n",
+             function (content) {
+               simple_form_CALLBACKS.execute (formId, function () {
+                 if (reload) {
+                   location.reload();
+                 } else if (redirect) {
+                   loadPage (redirect);
+                 } else {
+                   alert ('success: ' + content)
+                 }
+               });
+             }, 'text').fail (function () {
+               alert ('Form submission failed')
+               strictError (new Error ('Error: an error occured while trying to submit a form using the Simple Form module. The backend returned an error code.'));
+             });
+           
+         }
+       );
      });
 
   simple_form_CALLBACKS.register (formId);

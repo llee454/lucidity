@@ -62,6 +62,24 @@ MODULE_LOAD_HANDLERS.add (
 Block Handlers
 --------------
 
+The Simple Form module allows us to create forms simpler than
+traditional HTML forms.  Rather than wrap our forms inside HTML
+`<form>` elements, we instead create one or more HTML form elements
+(input, select, button, etc) and ensure that all of them have a
+matching form id using `data-simple-form-id`.  One of the form
+elements should be a button that has the `simple_form_block` class
+and includes the `data-simple-form-url` attribute to tell the module
+where to send the form data.  Simple Form will then find all of the
+form elements that have the same form ID, store the form element
+values into a JSON string, and send the JSON string to the given URL.
+
+You can use Simple Form to send images and other files. Create an
+input element with type "file". The input element must only accept a
+single file. Simple Form will convert the file content to a base64
+encoded string and send this string to the backend URL within the
+JSON object along with all the other form elements.
+
+
 ```javascript
 /*
   Accepts two arguments:
@@ -87,36 +105,55 @@ function simple_form_block (context, done) {
   var escapeNewlines = context.element.data ('simple-form-escape');
 
   context.element
-    .click (function () {
+    .click (async function () {
        var request = {}
-       $('[data-simple-form-id="' + formId + '"]').each (function (index, element) {
-         var name  = $(element).data ('simple-form-name');
-         var value = $(element).val ();
-         if (escapeNewlines) {
-           value = value
-             .replace (/\n/g, '\\\\n')
-             .replace (/\"/g, '\\"');
-         }
-         if (name) {
-           request [name] = value
-         }
-       });
+       var elements = $('[data-simple-form-id="' + formId + '"]').toArray (); 
+       async.each (elements,
+         function (element, next) {
+           var name = $(element).data ('simple-form-name');
+           if (!name) { return next (); }
 
-       $.post (url, JSON.stringify (request) + "\n",
-         function (content) {
-           simple_form_CALLBACKS.execute (formId, function () {
-             if (reload) {
-               location.reload();
-             } else if (redirect) {
-               loadPage (redirect);
-             } else {
-               alert ('success: ' + content)
+           if ($(element).attr ('type') == 'file' && element.files.length > 0) {
+             if (element.files.length > 1) {
+               return next (new Error ('Error: an error occured while trying to upload files using the Simple Form module. The Simple Form module only supports one file at a time.'));
              }
-           });
-         }, 'text').fail (function () {
-           alert ('failed')
-         });
+             var reader = new FileReader ();
+             reader.onload = function () {
+               var encodedContent = reader.result;
+               var contentStartIndex = encodedContent.indexOf ('base64');
+               request [name] = encodedContent.slice (contentStartIndex + 7);
+               next ();
+             };
+             reader.onerror = function () {
+               next (new Error ('Error: an error occured while trying to upload a file using the Simple Form module.'));
+             };
+             var file = element.files[0];
+             reader.readAsDataURL (file);
+           }
+         },
+         function (error) {
+           if (error) { return strictError (error); }
+
+           $.post (url, JSON.stringify (request) + "\n",
+             function (content) {
+               simple_form_CALLBACKS.execute (formId, function () {
+                 if (reload) {
+                   location.reload();
+                 } else if (redirect) {
+                   loadPage (redirect);
+                 } else {
+                   alert ('success: ' + content)
+                 }
+               });
+             }, 'text').fail (function () {
+               alert ('Form submission failed')
+               strictError (new Error ('Error: an error occured while trying to submit a form using the Simple Form module. The backend returned an error code.'));
+             });
+           
+         }
+       );
      });
+
 
   simple_form_CALLBACKS.register (formId);
 

@@ -56,6 +56,8 @@ case $(get_request_op "$request" "$params") in
     query=$(get_request_query "$request" "$params")
     echo "post: $post" 1>&2
     echo "query: $query" 1>&2
+    exec_delete_file "$request" "$params"
+    exec_create_file "$request" "$params"
     sqlite3 "$database" "$query" | sed 's/\\\\n/\\n/g' -
     ;;
   insert)

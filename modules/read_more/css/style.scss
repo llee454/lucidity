@@ -1,0 +1,23 @@
+.read_more {
+  overflow: hidden;
+  transition: linear 10s;
+  .read_more_content {
+    max-height: 415px;
+    transition: linear 10s;
+    &.read_more_expanded {
+      max-height: 10000px; // fit-content;
+      transition: linear 1s;
+    }
+  }
+  .read_more_button {
+    display: none;
+    border-top: 50px solid rgba(255,255,255,0.5);
+    position: relative;
+    .read_more_button_link {
+      background: white;
+      cursor: pointer;
+      padding: 20px 0;
+      text-align: center;
+    }
+  }
+}
